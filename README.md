@@ -2,7 +2,7 @@
 Its practical ffmpeg can be downloaded directly according to the m3u8 file, but some m3u8 files do not have the complete url 😑. If you want to download with ffmpeg at this time, it will be more troublesome. You need to manually edit the m3u8 file to fill in the urls of all fragments. This is ten thousand. Unacceptable, trouble! ! !
 
 # for chinese doc
-![中文文档](./README_CN.md)
+[中文文档](./README_CN.md)
 # prerequisite
 ## have installed nodejs
 ## have installed ffmpeg and add ffmpeg executor to the system path
