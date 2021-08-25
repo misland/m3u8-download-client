@@ -2,11 +2,19 @@
   "name": "m3u8-download-client",
   "version": "0.0.1",
   "description": "download video file by m3u8 file",
+  "keywords": ["m3u8", "download", "client"],
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "misland",
+  "author": {
+    "name": "misland",
+    "email": "muhe0702@outlook.com"
+  },
   "license": "MIT",
-  "dependencies": {}
+  "dependencies": {},
+  "homepage": "https://github.com/misland/m3u8-download-client",
+  "engines": {
+    "node": ">=12"
+  }
 }
