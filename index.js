@@ -1,3 +1,4 @@
+'use strict';
 const fs = require('fs');
 const https = require('https');
 const readline = require('readline');
@@ -8,11 +9,12 @@ const os = require('os');
 class Download {
   #files = null;
   #downloaded = null;
-  constructor(file, prefix, hasParam, deleteTemFile, output) {
+  #prefix = null;
+  constructor(file, hasPrefix, hasParam, deleteTemFile, output) {
     // 要下载的m3u8文件
     this.target = file;
-    // 有的m3u8文件中只有文件列表，如某1，这时需要拼接完整url
-    this.prefix = prefix;
+    // m3u8文件中ts文件名是否完整，有的只有ts文件名字而没有完整文件路径
+    this.hasPrefix = hasPrefix;
     // m3u8文件中的url中是否含有参数，如某酷
     this.hasParam = hasParam;
     // 是否删除下载过程中的缓存文件
@@ -23,6 +25,8 @@ class Download {
     this.#files = [];
     // 已下载的文件列表
     this.#downloaded = [];
+    // 有的m3u8文件中只有文件列表，如某1，这时需要拼接完整url
+    this.#prefix = '';
   }
 
   async getFiles(file) {
@@ -50,7 +54,7 @@ class Download {
     });
   };
 
-  async download_slice(durl, dest) {
+  async downloading_file(durl, dest) {
     return new Promise((resolve, reject) => {
       const file = fs.createWriteStream(dest);
       let options = url.parse(durl);
@@ -72,19 +76,29 @@ class Download {
 
   async download() {
     try {
+      let folder_name = new Date().getTime();
       // 检查目标文件夹是否存在
-      if (!fs.existsSync(`./${this.target}`)) {
-        console.log(`create ${this.target} folder`);
-        fs.mkdirSync(`./${this.target}`);
+      if (!fs.existsSync(`./${folder_name}`)) {
+        console.log(`create ${folder_name} folder`);
+        fs.mkdirSync(`./${folder_name}`);
       }
+      // get prefix first if the name of ts files in m3u8 do not have complete url
+      if (!this.hasPrefix) {
+        let tem_arr = this.target.split('.m3u8');
+        this.#prefix = tem_arr[0].substr(0, tem_arr[0].lastIndexOf('/') + 1);
+      }
+      // download m3u8 files first
+      let m3u8_file_name = `${folder_name}.m3u8`;
+      await this.downloading_file(this.target, `./${folder_name}/${m3u8_file_name}`);
+      console.log('downloading m3u8 file successfully');
       // 已经下载的片断
-      this.#downloaded = await this.getFiles(`./${this.target}/downloaded.txt`);
+      this.#downloaded = await this.getFiles(`./${folder_name}/downloaded.txt`);
       // 待下载文件列表
-      this.#files = await this.getFiles(`./${this.target}.m3u8`);
+      this.#files = await this.getFiles(`./${folder_name}/${m3u8_file_name}`);
       // 存放已经下载的片断，符合ffmpeg合并时所需格式
-      let ffmpeg_file = fs.openSync(`./${this.target}/files.txt`, 'a+');
+      let ffmpeg_file = fs.openSync(`./${folder_name}/files.txt`, 'a+');
       // 存放已经下载的片断url
-      let download_file = fs.openSync(`./${this.target}/downloaded.txt`, 'a+');
+      let download_file = fs.openSync(`./${folder_name}/downloaded.txt`, 'a+');
       for (let data of this.#files) {
         // 还没下载继续下载
         if (this.#downloaded.indexOf(data) < 0) {
@@ -97,8 +111,8 @@ class Download {
           else {
             tem_file = data.substr(data.lastIndexOf('/') + 1);
           }
-          console.log(`destination:${this.target}/${tem_file}`);
-          await this.download_slice(`${this.prefix}${data}`, `./${this.target}/${tem_file}`);
+          console.log(`destination:${folder_name}/${tem_file}`);
+          await this.downloading_file(`${this.#prefix}${data}`, `./${folder_name}/${tem_file}`);
           fs.writeFileSync(ffmpeg_file, `file ${tem_file}\r\n`);
           fs.writeFileSync(download_file, `${data}\r\n`);
         }
@@ -107,15 +121,15 @@ class Download {
       fs.closeSync(download_file);
 
       // 拼接片断
-      childProcess.execSync(`ffmpeg -v error -f concat -i ./${this.target}/files.txt -vcodec copy -acodec copy ./${this.output}.mp4 -y`);
+      childProcess.execSync(`ffmpeg -v error -f concat -i ./${folder_name}/files.txt -vcodec copy -acodec copy ./${this.output} -y`);
 
       // 删除缓存文件
       if (this.deleteTemFile) {
         if (os.platform() === 'win32') {
-          childProcess.execSync(`rmdir /Q /S ${this.target}`);
+          childProcess.execSync(`rmdir /Q /S ${folder_name}`);
         }
         else if (os.platform() === 'linux') {
-          childProcess.execSync(`rm -rf ${this.target}`);
+          childProcess.execSync(`rm -rf ${folder_name}`);
         }
         else {
           // todo
